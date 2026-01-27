@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SOS LoRa Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 100vh; width: 100%; } /* Full screen map */
+        body { margin: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <script>
+        // 1. Paste your Firebase Config here (Get this from Firebase Project Settings > Web App)
+        const firebaseConfig = {
+            databaseURL: "YOUR_DATABASE_URL_HERE",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // 2. Initialize the Map
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        let marker = L.marker([0, 0]).addTo(map);
+
+        // 3. Listen for Data Updates
+        db.ref("location").on("value", (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const pos = [data.lat, data.lng];
+                marker.setLatLng(pos);
+                map.setView(pos, 15); // Zoom in on the location
+                marker.bindPopup(`<b>Status: ${data.msg}</b>`).openPopup();
+                
+                if(data.msg.includes("SOS")) {
+                    document.getElementById('map').style.border = "10px solid red";
+                }
+            }
+        });
+    </script>
+</body>
+</html>
