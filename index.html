@@ -2,14 +2,15 @@
 <html>
 <head>
     <title>SOS LoRa Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        #map { height: 100vh; width: 100%; } /* Full screen map */
-        body { margin: 0; }
+        /* FIX: Explicit height makes the map visible */
+        #map { height: 100vh; width: 100%; }
+        body, html { margin: 0; padding: 0; }
     </style>
 </head>
 <body>
-
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -17,30 +18,29 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <script>
-        // 1. Paste your Firebase Config here (Get this from Firebase Project Settings > Web App)
+        // Use your specific Asia-Southeast URL
         const firebaseConfig = {
-            databaseURL: "YOUR_DATABASE_URL_HERE",
+            apiKey: "AIzaSyAXHGF2-PukQDz2bzK_-kRn7EZhTYlC0vU", 
+            projectId: "myloramap-4cc73",
+            databaseURL: "https://myloramap-4cc73-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // 2. Initialize the Map
-        const map = L.map('map').setView([0, 0], 2);
+        const map = L.map('map').setView([12.97, 77.59], 13);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        let marker = L.marker([0, 0]).addTo(map);
+        let marker = L.marker([12.97, 77.59]).addTo(map);
 
-        // 3. Listen for Data Updates
         db.ref("location").on("value", (snapshot) => {
             const data = snapshot.val();
             if (data) {
                 const pos = [data.lat, data.lng];
                 marker.setLatLng(pos);
-                map.setView(pos, 15); // Zoom in on the location
-                marker.bindPopup(`<b>Status: ${data.msg}</b>`).openPopup();
+                map.setView(pos, 15);
+                marker.bindPopup(`<b>Status:</b> ${data.msg}<br><b>Time:</b> ${data.time}`).openPopup();
                 
-                if(data.msg.includes("SOS")) {
-                    document.getElementById('map').style.border = "10px solid red";
-                }
+                // Visual SOS alert
+                document.getElementById('map').style.border = data.msg.includes("SOS") ? "10px solid red" : "none";
             }
         });
     </script>
