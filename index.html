@@ -166,10 +166,15 @@
             localStorage.setItem('loraCaseHistory', JSON.stringify(caseHistory));
             renderHistory();
 
-            if (data.msg.includes("SOS")) {
-                let alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
-                alertSound.play().catch(e => console.log("Audio play failed:", e));
-            }
+            // Triggers the alarm for ANY emergency state
+if (data.msg.includes("SOS") || data.msg.includes("CRASH") || data.msg.includes("ROLLOVER")) {
+    let alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+    alertSound.play().catch(e => console.log("Audio play failed:", e));
+    
+    // Optional: Make the screen flash red for high visibility
+    document.body.style.backgroundColor = "#ffcccc"; 
+    setTimeout(() => { document.body.style.backgroundColor = "#f4f4f9"; }, 1000);
+}
         }
     });
 
@@ -177,3 +182,4 @@
 </script>
 </body>
 </html>
+
