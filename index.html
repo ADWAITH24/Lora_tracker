@@ -1,53 +1,253 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Live LoRa Tracker</title>
+    <title>LoRa Emergency Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
-        /* FIX: Height must be set for the map to appear */
-        #map { height: 100vh; width: 100%; background: #222; }
-        body, html { margin: 0; padding: 0; overflow: hidden; }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+        }
+        /* Main Container for the two-column layout */
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+        /* Left column for the map */
+        #map-container {
+            flex: 2; /* Takes up 2/3 of the space */
+            height: 100%;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        /* Right column for the history table */
+        #history-container {
+            flex: 1; /* Takes up 1/3 of the space */
+            padding: 20px;
+            background-color: #fff;
+            border-left: 2px solid #e0e0e0;
+            overflow-y: auto; /* Adds a scrollbar if the content is too long */
+        }
+        /* Header styling */
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #343a40;
+        }
+        h2 {
+            margin: 0;
+            color: #343a40;
+        }
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            color: #343a40;
+        }
+        /* Button styling */
+        .btn {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        #clear-all-btn {
+            background-color: #ffc107; /* Yellow color for 'Clear All' */
+            color: #212529;
+        }
+        #clear-all-btn:hover {
+            background-color: #e0a800;
+        }
+        .close-btn {
+            background-color: #dc3545; /* Red color for 'Close' */
+            color: white;
+            padding: 6px 10px;
+            font-size: 0.9em;
+        }
+        .close-btn:hover {
+            background-color: #c82333;
+        }
+        /* Highlighting rows with SOS alerts */
+        .sos-alert {
+            background-color: #ffebee; /* Light red background */
+            font-weight: bold;
+            color: #c62828;
+        }
     </style>
 </head>
 <body>
-    <div id="map"></div>
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<div id="container">
+    <div id="map-container">
+        <div id="map"></div>
+    </div>
 
-    <script>
-        const firebaseConfig = {
-            apiKey: "", 
-            projectId: "myloramap-4cc73",
-            databaseURL: "https://myloramap-4cc73-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+    <div id="history-container">
+        <div id="header">
+            <h2>Emergency History</h2>
+            <button id="clear-all-btn" class="btn" onclick="clearAllCases()">Clear All</button>
+        </div>
+        <table id="history-table">
+            <thead>
+                <tr>
+                    <th>TYPE</th>
+                    <th>LATITUDE</th>
+                    <th>LONGITUDE</th>
+                    <th>TIME</th>
+                    <th>ACTION</th>
+                </tr>
+            </thead>
+            <tbody id="history-body">
+                </tbody>
+        </table>
+    </div>
+</div>
 
-        // Initial Map center
-        const map = L.map('map').setView([8.91, 76.63], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-        let marker = L.marker([8.91, 76.63]).addTo(map);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-        // Listen for data
-        db.ref("location").on("value", (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.lat && data.lng) {
-                const pos = [data.lat, data.lng];
-                
-                // Move marker and pan map
-                marker.setLatLng(pos);
-                map.panTo(pos); 
-                
-                marker.bindPopup(`<b>Status:</b> ${data.msg}<br>Time: ${data.time}`).openPopup();
-                
-                // SOS Visual Alert
-                document.getElementById('map').style.border = data.msg.includes("SOS") ? "10px solid red" : "none";
+<script>
+    // 1. FIREBASE CONFIGURATION (Same as before)
+    const firebaseConfig = {
+        apiKey: "AIzaSyAXHGF2-PukQDz2bzk_-kRn7EZhTYIC0vU",
+        projectId: "myloramap-4cc73",
+        databaseURL: "https://myloramap-4cc73-default-rtdb.asia-southeast1.firebasedatabase.app/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // 2. MAP INITIALIZATION
+    // Center the map initially. It will auto-center on new alerts.
+    const map = L.map('map').setView([8.91, 76.63], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 3. DATA MANAGEMENT
+    // We'll use localStorage to save the history in the user's browser.
+    // This way, the data persists even if they close and reopen the page.
+    let caseHistory = JSON.parse(localStorage.getItem('loraCaseHistory')) || [];
+    let markers = []; // Array to keep track of map markers
+
+    // Function to render the table and map markers from the history data
+    function renderHistory() {
+        const tableBody = document.getElementById('history-body');
+        tableBody.innerHTML = ''; // Clear existing rows
+
+        // Remove all existing markers from the map
+        markers.forEach(marker => map.removeLayer(marker));
+        markers = [];
+
+        // Loop through each case in the history and add it to the UI
+        caseHistory.forEach((caseData, index) => {
+            // 1. Add to Table
+            const row = tableBody.insertRow();
+            // Highlight SOS rows for better visibility
+            if (caseData.msg.includes("SOS")) {
+                row.classList.add("sos-alert");
             }
+            row.innerHTML = `
+                <td>${caseData.msg}</td>
+                <td>${caseData.lat.toFixed(4)}</td>
+                <td>${caseData.lng.toFixed(4)}</td>
+                <td>${caseData.time}</td>
+                <td><button class="btn close-btn" onclick="closeCase(${index})">Close</button></td>
+            `;
+
+            // 2. Add Marker to Map
+            const marker = L.marker([caseData.lat, caseData.lng]).addTo(map);
+            marker.bindPopup(`<b>${caseData.msg}</b><br>Time: ${caseData.time}`);
+            markers.push(marker); // Store marker reference
         });
-    </script>
+
+        // If there are cases, center the map on the most recent one
+        if (caseHistory.length > 0) {
+            map.setView([caseHistory[0].lat, caseHistory[0].lng], 15);
+        }
+    }
+
+    // 4. EVENT LISTENERS & FUNCTIONS
+
+    // Function to close a specific case
+    function closeCase(index) {
+        // Remove the case at the specified index
+        caseHistory.splice(index, 1);
+        // Update localStorage
+        localStorage.setItem('loraCaseHistory', JSON.stringify(caseHistory));
+        // Re-render the UI
+        renderHistory();
+    }
+
+    // Function to clear all cases
+    function clearAllCases() {
+        if (confirm("Are you sure you want to clear all history?")) {
+            // Empty the history array
+            caseHistory = [];
+            // Clear localStorage
+            localStorage.removeItem('loraCaseHistory');
+            // Re-render the UI
+            renderHistory();
+        }
+    }
+
+    // Listen for new data from Firebase
+    db.ref("location").on("value", (snapshot) => {
+        const data = snapshot.val();
+        if (data && data.lat && data.lng) {
+            // Create a new case object
+            const newCase = {
+                lat: data.lat,
+                lng: data.lng,
+                msg: data.msg,
+                time: data.time
+            };
+
+            // Add the new case to the beginning of the history array
+            caseHistory.unshift(newCase);
+
+            // Keep only the past 10 cases
+            if (caseHistory.length > 10) {
+                caseHistory.pop(); // Remove the oldest case
+            }
+
+            // Save the updated history to localStorage
+            localStorage.setItem('loraCaseHistory', JSON.stringify(caseHistory));
+
+            // Re-render the UI to show the new data
+            renderHistory();
+
+            // Optional: Play a sound for SOS alerts
+            if (data.msg.includes("SOS")) {
+                let alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg');
+                alertSound.play().catch(e => console.log("Audio play failed:", e));
+            }
+        }
+    });
+
+    // Initial render on page load to show any saved history
+    renderHistory();
+
+</script>
 </body>
 </html>
-
